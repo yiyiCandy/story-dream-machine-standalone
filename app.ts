@@ -4,8 +4,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
-import { synthesizeMicrosoftEdgeTts } from "./microsoftEdgeTts";
-import { getCachedMp3, makeTtsCacheKey, setCachedMp3 } from "./serverTtsCache";
+import { synthesizeMicrosoftEdgeTts } from "./microsoftEdgeTts.ts";
+import { getCachedMp3, makeTtsCacheKey, setCachedMp3 } from "./serverTtsCache.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
