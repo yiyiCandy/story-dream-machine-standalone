@@ -1,4 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { synthesizeMicrosoftEdgeTts } from "../microsoftEdgeTts.ts";
+import { getCachedMp3, makeTtsCacheKey, setCachedMp3 } from "../serverTtsCache.ts";
 
 type RequestWithBody = IncomingMessage & { body?: unknown };
 
@@ -62,17 +64,13 @@ export default async function handler(req: RequestWithBody, res: ServerResponse)
 
   try {
     if (backend === "edge") {
-      const [{ synthesizeMicrosoftEdgeTts }, cache] = await Promise.all([
-        import("../microsoftEdgeTts.ts"),
-        import("../serverTtsCache.ts"),
-      ]);
       const voice = (process.env.EDGE_TTS_VOICE || "zh-CN-XiaoxiaoNeural").trim() || "zh-CN-XiaoxiaoNeural";
       const rate = (process.env.EDGE_TTS_RATE || "-5%").trim() || "-5%";
       const pitch = (process.env.EDGE_TTS_PITCH || "+0Hz").trim() || "+0Hz";
       const volume = (process.env.EDGE_TTS_VOLUME || "+0%").trim() || "+0%";
       const trimmed = text.trim();
-      const cacheKey = cache.makeTtsCacheKey({ backend: "edge", voice, rate, pitch, volume, text: trimmed });
-      const cached = cache.getCachedMp3(cacheKey);
+      const cacheKey = makeTtsCacheKey({ backend: "edge", voice, rate, pitch, volume, text: trimmed });
+      const cached = getCachedMp3(cacheKey);
 
       if (cached) {
         res.setHeader("Content-Type", "audio/mpeg");
@@ -84,7 +82,7 @@ export default async function handler(req: RequestWithBody, res: ServerResponse)
       }
 
       const audio = await synthesizeMicrosoftEdgeTts(trimmed, { voice, rate, pitch, volume });
-      cache.setCachedMp3(cacheKey, audio);
+      setCachedMp3(cacheKey, audio);
       res.setHeader("Content-Type", "audio/mpeg");
       res.setHeader("Cache-Control", "public, max-age=86400");
       res.setHeader("X-TTS-Engine", "microsoft-edge-online");
@@ -94,18 +92,17 @@ export default async function handler(req: RequestWithBody, res: ServerResponse)
     }
 
     if (backend === "glm") {
-      const cache = await import("../serverTtsCache.ts");
       const voice = (process.env.GLM_TTS_VOICE || "female").trim() || "female";
       const speed = parseFloat(process.env.GLM_TTS_SPEED || "1.0") || 1.0;
       const volume = parseFloat(process.env.GLM_TTS_VOLUME || "1.0") || 1.0;
-      const cacheKey = cache.makeTtsCacheKey({
+      const cacheKey = makeTtsCacheKey({
         backend: "glm",
         voice,
         speed: String(speed),
         volume: String(volume),
         text: text.trim(),
       });
-      const cached = cache.getCachedMp3(cacheKey);
+      const cached = getCachedMp3(cacheKey);
 
       if (cached) {
         res.setHeader("Content-Type", "audio/wav");
@@ -138,7 +135,7 @@ export default async function handler(req: RequestWithBody, res: ServerResponse)
       }
 
       const audio = Buffer.from(await upstream.arrayBuffer());
-      cache.setCachedMp3(cacheKey, audio);
+      setCachedMp3(cacheKey, audio);
       res.setHeader("Content-Type", "audio/wav");
       res.setHeader("Cache-Control", "public, max-age=86400");
       res.setHeader("X-TTS-Cache", "MISS");
@@ -147,15 +144,12 @@ export default async function handler(req: RequestWithBody, res: ServerResponse)
     }
 
     if (backend === "openai") {
-      const [{ default: OpenAI }, cache] = await Promise.all([
-        import("openai"),
-        import("../serverTtsCache.ts"),
-      ]);
+      const { default: OpenAI } = await import("openai");
       const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
       const voice = (process.env.OPENAI_TTS_VOICE || "nova").trim() || "nova";
       const model = (process.env.OPENAI_TTS_MODEL || "tts-1").trim() || "tts-1";
-      const cacheKey = cache.makeTtsCacheKey({ backend: "openai", model, voice, text: text.trim() });
-      const cached = cache.getCachedMp3(cacheKey);
+      const cacheKey = makeTtsCacheKey({ backend: "openai", model, voice, text: text.trim() });
+      const cached = getCachedMp3(cacheKey);
 
       if (cached) {
         res.setHeader("Content-Type", "audio/mpeg");
@@ -171,7 +165,7 @@ export default async function handler(req: RequestWithBody, res: ServerResponse)
         input: text,
       });
       const audio = Buffer.from(await mp3.arrayBuffer());
-      cache.setCachedMp3(cacheKey, audio);
+      setCachedMp3(cacheKey, audio);
       res.setHeader("Content-Type", "audio/mpeg");
       res.setHeader("Cache-Control", "public, max-age=86400");
       res.setHeader("X-TTS-Cache", "MISS");
