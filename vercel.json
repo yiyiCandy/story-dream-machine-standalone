@@ -2,7 +2,13 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
-    "api/[...route].ts": {
+    "api/tts.ts": {
+      "maxDuration": 60
+    },
+    "api/ai/polish.ts": {
+      "maxDuration": 60
+    },
+    "api/ai/image.ts": {
       "maxDuration": 60
     }
   }
