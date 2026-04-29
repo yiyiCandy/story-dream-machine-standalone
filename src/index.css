@@ -1,0 +1,67 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&family=ZCOOL+KuaiLe&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-size: 18px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-background text-gray-800 font-sans;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .no-select {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
+@layer components {
+  .btn-kid {
+    @apply min-w-touch min-h-touch px-6 py-3 rounded-kid text-kid-md font-bold
+           transition-all duration-200 active:scale-95
+           shadow-md hover:shadow-lg;
+  }
+
+  .btn-kid-primary {
+    @apply btn-kid bg-primary-500 text-white hover:bg-primary-600;
+  }
+
+  .btn-kid-secondary {
+    @apply btn-kid bg-secondary-400 text-white hover:bg-secondary-500;
+  }
+
+  .btn-kid-success {
+    @apply btn-kid bg-success text-white hover:opacity-90;
+  }
+}
+
+.glass-card {
+  @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl rounded-3xl;
+}
+
+.hotspot-pulse {
+  @apply absolute w-8 h-8 bg-yellow-400/50 rounded-full flex items-center justify-center cursor-pointer;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(250, 204, 21, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(250, 204, 21, 0); }
+}
+
+.speech-bubble {
+  @apply relative bg-white p-4 rounded-2xl shadow-md border-2 border-slate-100;
+}
+
+.speech-bubble::after {
+  content: '';
+  @apply absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-t-[10px] border-t-white;
+}

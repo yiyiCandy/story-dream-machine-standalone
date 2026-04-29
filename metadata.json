@@ -1,0 +1,5 @@
+{
+  "name": "故事造梦机",
+  "description": "一个专为一年级孩子设计的互动看图说话应用，通过“寻宝-采访-连句-AI润色”四个步骤，解决观察无序、词汇匮乏和逻辑不清的痛点。",
+  "requestFramePermissions": ["microphone"]
+}
