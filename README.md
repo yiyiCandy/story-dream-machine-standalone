@@ -92,8 +92,8 @@ npm run build
 这个项目现在已经按 Vercel 结构整理好了：
 
 - 前端静态资源由 `dist/` 输出
-- 服务端接口通过 `api/[...route].ts` 进入
-- `/api/tts`、`/api/ai/polish`、`/api/health` 都可以直接走 Vercel Serverless Functions
+- 服务端接口通过 `api/` 下的原生 Vercel Serverless Functions 提供
+- `/api/tts`、`/api/ai/polish`、`/api/ai/image`、`/api/health` 都可以直接走 Vercel Serverless Functions
 
 部署时建议在 Vercel 后台至少配置以下环境变量之一：
 
@@ -125,8 +125,10 @@ npm run build
   故事静态图片资源
 - `server.ts`
   本地服务端，负责 AI 与 TTS 接口
+- `api`
+  Vercel Serverless Functions 入口
 - `microsoftEdgeTts.ts`
-  Edge TTS 能力封装
+  本地 Express 服务使用的 Edge TTS 能力封装
 
 ## 环境变量
 
