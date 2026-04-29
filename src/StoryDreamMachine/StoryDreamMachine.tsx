@@ -9,7 +9,7 @@ import Step4StoryMagician from './Step4StoryMagician';
 import { generateStoryImage } from './services/ai';
 import { STORIES } from './constants';
 import { downloadImage } from './lib/download';
-import { getTtsMode, setTtsMode, type TTSMode } from './lib/tts';
+import { getTtsMode, preloadTts, setTtsMode, type TTSMode } from './lib/tts';
 
 type Props = {
   onComplete: (correct: number, total: number) => void;
@@ -67,6 +67,7 @@ export function StoryDreamMachine({ onComplete }: Props) {
     setOriginalAudioUrl(null);
     setStep('treasure-hunt');
     setShowFallbackNotice(false);
+    nextStory.questions.forEach((question) => preloadTts(question.question));
 
     if (nextStory.disableAI) {
       setIsGeneratingImage(false);

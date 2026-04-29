@@ -18,7 +18,18 @@ export default function Step1TreasureHunt({ onComplete, imageUrl, isGenerating, 
 
   useEffect(() => {
     story.hotspots.forEach((h) => preloadTts(h.audioText));
+    story.questions.forEach((q) => preloadTts(q.question));
   }, [story]);
+
+  useEffect(() => {
+    if (!activeHotspot) return;
+
+    const timer = window.setTimeout(() => {
+      setActiveHotspot(null);
+    }, 4500);
+
+    return () => window.clearTimeout(timer);
+  }, [activeHotspot]);
 
   const handleHotspotClick = (hotspot: Hotspot) => {
     setActiveHotspot(hotspot);

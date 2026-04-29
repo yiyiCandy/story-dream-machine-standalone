@@ -10,6 +10,7 @@ interface Props {
 }
 
 const FEEDBACK_PHRASES = ["说得真好！", "我知道了！", "太棒了！", "你观察得真仔细！", "听起来很有趣！"];
+const SKIP_FEEDBACK = "那回答下一个问题吧";
 
 export default function Step2AIReporter({ story, onComplete }: Props) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -78,6 +79,7 @@ export default function Step2AIReporter({ story, onComplete }: Props) {
   useEffect(() => {
     story.questions.forEach((q) => preloadTts(q.question));
     FEEDBACK_PHRASES.forEach((p) => preloadTts(p));
+    preloadTts(SKIP_FEEDBACK);
   }, [story]);
 
   useEffect(() => {
@@ -146,21 +148,23 @@ export default function Step2AIReporter({ story, onComplete }: Props) {
   };
 
   const handleNext = () => {
-    const newAnswers = { ...answers, [currentQuestion.key]: transcript };
+    const trimmedTranscript = transcript.trim();
+    const isSkipped = trimmedTranscript.length === 0;
+    const newAnswers = { ...answers, [currentQuestion.key]: trimmedTranscript };
     setAnswers(newAnswers);
 
-    const randomFeedback = FEEDBACK_PHRASES[Math.floor(Math.random() * FEEDBACK_PHRASES.length)];
-    setFeedback(randomFeedback);
-    void speak(randomFeedback);
+    const nextFeedback = isSkipped
+      ? SKIP_FEEDBACK
+      : FEEDBACK_PHRASES[Math.floor(Math.random() * FEEDBACK_PHRASES.length)];
+    setFeedback(nextFeedback);
+    void speak(nextFeedback);
 
     setTimeout(() => {
       setFeedback(null);
       setTranscript('');
 
       if (currentQuestionIndex < story.questions.length - 1) {
-        const nextIndex = currentQuestionIndex + 1;
-        setCurrentQuestionIndex(nextIndex);
-        void speak(story.questions[nextIndex].question);
+        setCurrentQuestionIndex(currentQuestionIndex + 1);
       } else {
         onComplete(newAnswers);
       }
@@ -252,7 +256,9 @@ export default function Step2AIReporter({ story, onComplete }: Props) {
               onClick={handleNext}
               className="btn-kid-secondary w-full max-w-xs"
             >
-              {transcript ? "回答好了，下一题" : (currentQuestionIndex === story.questions.length - 1 ? "回答好了，进入下一步" : "跳过此题")}
+              {transcript.trim()
+                ? "回答好了，下一题"
+                : (currentQuestionIndex === story.questions.length - 1 ? "跳过此题，进入下一步" : "跳过此题")}
             </motion.button>
           )}
         </div>
