@@ -320,6 +320,8 @@ export function StoryDreamMachine({ onComplete }: Props) {
                 transcript={transcript}
                 originalAudioUrl={originalAudioUrl}
                 imageUrl={storyImage || currentStory.imageUrl}
+                previousAnswers={step2Answers}
+                story={currentStory}
                 onRestart={resetToLanding}
                 onFinishLesson={() => onComplete(1, 1)}
               />

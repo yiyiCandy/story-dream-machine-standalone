@@ -16,14 +16,18 @@
 - AI 故事润色
 - 浏览器语音识别与录音
 - 本地运行与独立部署
+- 本地 Express 与 Vercel Serverless 共用一套 AI 润色逻辑
 
 ## 功能特点
 
 - 4 步故事创作流程完整可用
+- Step 2 采用聊天式 AI 小记者提问，逐题追问更直观
+- Step 3 采用一屏故事工作台布局，采访笔记只做参照，最终故事由孩子重新完整讲述
+- Step 4 提供“保留童真版 / 优秀范文版”双版本润色与老师式反馈
 - 支持“再讲一个”重新开始
 - 支持 AI 润色失败时优雅回退
 - 支持切换服务端 TTS / 浏览器 TTS
-- 内置多张故事场景图
+- 内置 12 张故事场景图
 
 ## 技术栈
 
@@ -62,7 +66,8 @@ AI_PROVIDER="deepseek"
 
 默认情况下：
 
-- 文本润色会按可用 Key 自动选择模型
+- 文本润色会按可用 Key 自动选择模型，优先级为 `deepseek → glm → gemini → openai`
+- DeepSeek 默认文本模型是 `deepseek-v4-pro`，失败时会自动回退到 `deepseek-v4-flash`
 - TTS 优先走服务端 `edge-tts`
 
 3. 启动开发环境
@@ -107,11 +112,13 @@ npm run build
 - `AI_PROVIDER`
 - `TTS_PROVIDER`
 - `EDGE_TTS_VOICE`
+- `DEEPSEEK_TEXT_MODEL`
 - `GLM_TEXT_MODEL`
 
 说明：
 
 - 默认情况下，TTS 会优先尝试服务端 Edge TTS
+- Step 4 的本地服务端与 Vercel Serverless 使用同一套润色 prompt、schema 与 fallback 逻辑
 - 如果 AI Key 未配置，Step 4 润色会自动进入前端 fallback
 - 项目根目录已包含 `vercel.json`，一般不需要额外改构建命令
 
@@ -151,6 +158,15 @@ npm run build
 ## 说明
 
 这个仓库现在是一个独立项目，可以单独开发、单独部署、单独上传 Git。
+
+目前内置 12 个故事主题，其中新增的 6 个场景包括：
+
+- 雨天送伞
+- 端午包粽
+- 图书馆阅读
+- 秋天果园
+- 教室值日
+- 菜市场买菜
 
 如果你需要查看它和 `Study Buddy` 之间的同步说明，我已经单独保存在：
 

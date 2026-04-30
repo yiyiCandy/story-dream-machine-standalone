@@ -1,4 +1,13 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import {
+  DEEPSEEK_FALLBACK_TEXT_MODEL,
+  buildPolishUserPrompt,
+  formatPolishFailure,
+  getDeepseekTextModel,
+  normalizePolishBody,
+  polishSystemPrompt,
+  safeParsePolishJson,
+} from "./polishShared.ts";
 
 type RequestWithBody = IncomingMessage & { body?: unknown };
 
@@ -50,63 +59,6 @@ const getAIProviderOrNull = (): string | null => {
 const getGlmTextModel = () =>
   (process.env.GLM_TEXT_MODEL || "glm-4.7").trim() || "glm-4.7";
 
-const safeParsePolishJson = (raw: string): Record<string, unknown> => {
-  const trimmed = (raw ?? "").trim();
-  if (!trimmed) return {};
-  try {
-    return JSON.parse(trimmed) as Record<string, unknown>;
-  } catch {
-    const match = trimmed.match(/\{[\s\S]*\}/);
-    if (!match) return {};
-    try {
-      return JSON.parse(match[0]) as Record<string, unknown>;
-    } catch {
-      return {};
-    }
-  }
-};
-
-const normalizePolishBody = (
-  parsed: Record<string, unknown>,
-  transcript: string,
-  provider: string,
-  model: string
-) => ({
-  feedback: typeof parsed.feedback === "string" ? parsed.feedback : "你真棒！说得很清楚。",
-  polishedStory:
-    typeof parsed.polishedStory === "string" ? parsed.polishedStory : transcript,
-  highlights: Array.isArray(parsed.highlights)
-    ? (parsed.highlights as unknown[]).filter((item): item is string => typeof item === "string")
-    : [],
-  ai: { provider, model },
-});
-
-const formatPolishFailure = (err: unknown, provider: string) => {
-  const parts = [`provider=${provider}`];
-  if (err instanceof Error) {
-    parts.push(`${err.name}: ${err.message || "(no message)"}`);
-    const anyErr = err as Error & { status?: number; code?: unknown; error?: unknown; cause?: unknown };
-    if (typeof anyErr.status === "number") parts.push(`HTTP ${anyErr.status}`);
-    if (anyErr.code != null && anyErr.code !== "") parts.push(`code=${String(anyErr.code)}`);
-    if (anyErr.error != null) parts.push(`upstream=${JSON.stringify(anyErr.error).slice(0, 1500)}`);
-    if (anyErr.cause != null) parts.push(`cause=${String(anyErr.cause)}`);
-  } else {
-    parts.push(String(err));
-  }
-  const detail = parts.filter(Boolean).join(" | ");
-  return { message: detail.slice(0, 400), detail };
-};
-
-const systemPrompt = `你现在是一名资深的小学一年级语文老师。请阅读以下7岁儿童的看图说话文本。
-请保留他原有的逻辑，用一年级下学期学生能听懂、能学习的词汇（如增加适当的形容词、动词），将这段话润色成一段优美的短文。
-字数控制在100字以内。
-请按以下JSON格式返回：
-{
-  "feedback": "先夸奖他哪里说得好（如流利度、要素完整度等），语气要亲切鼓励。",
-  "polishedStory": "润色后的优美版本",
-  "highlights": ["用到的好词1", "用到的好词2"]
-}`;
-
 export default async function handler(req: RequestWithBody, res: ServerResponse) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -116,6 +68,7 @@ export default async function handler(req: RequestWithBody, res: ServerResponse)
 
   const body = await readJsonBody(req);
   const transcript = typeof body.transcript === "string" ? body.transcript : "";
+  const context = body.context && typeof body.context === "object" ? body.context : undefined;
   if (!transcript) {
     sendJson(res, 400, { error: "Missing transcript" });
     return;
@@ -138,7 +91,7 @@ export default async function handler(req: RequestWithBody, res: ServerResponse)
       const response = await genAI.models.generateContent({
         model,
         contents: [
-          { role: "user", parts: [{ text: `${systemPrompt}\n孩子的原话：${transcript}` }] },
+          { role: "user", parts: [{ text: `${polishSystemPrompt}\n\n${buildPolishUserPrompt(transcript, context)}` }] },
         ],
         config: { responseMimeType: "application/json" },
       });
@@ -154,7 +107,7 @@ export default async function handler(req: RequestWithBody, res: ServerResponse)
     if (provider === "deepseek") {
       baseURL = "https://api.deepseek.com";
       apiKey = process.env.DEEPSEEK_API_KEY;
-      model = "deepseek-chat";
+      model = getDeepseekTextModel();
     } else if (provider === "glm") {
       baseURL = "https://open.bigmodel.cn/api/paas/v4";
       apiKey = process.env.GLM_API_KEY;
@@ -162,22 +115,28 @@ export default async function handler(req: RequestWithBody, res: ServerResponse)
     }
 
     const client = new OpenAI({ baseURL, apiKey: apiKey || "" });
-    const runChat = (useJsonObject: boolean) =>
+    const runChat = (targetModel: string, useJsonObject: boolean) =>
       client.chat.completions.create({
         messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `孩子的原话：${transcript}` },
+          { role: "system", content: polishSystemPrompt },
+          { role: "user", content: buildPolishUserPrompt(transcript, context) },
         ],
-        model,
+        model: targetModel,
         ...(useJsonObject ? { response_format: { type: "json_object" as const } } : {}),
       });
 
     let completion;
     try {
-      completion = await runChat(true);
+      completion = await runChat(model, true);
     } catch (firstErr) {
-      if (provider !== "glm") throw firstErr;
-      completion = await runChat(false);
+      if (provider === "glm") {
+        completion = await runChat(model, false);
+      } else if (provider === "deepseek" && model !== DEEPSEEK_FALLBACK_TEXT_MODEL) {
+        model = DEEPSEEK_FALLBACK_TEXT_MODEL;
+        completion = await runChat(model, true);
+      } else {
+        throw firstErr;
+      }
     }
 
     const content = completion.choices?.[0]?.message?.content;

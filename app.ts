@@ -6,6 +6,15 @@ import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
 import { synthesizeMicrosoftEdgeTts } from "./microsoftEdgeTts.ts";
 import { getCachedMp3, makeTtsCacheKey, setCachedMp3 } from "./serverTtsCache.ts";
+import {
+  DEEPSEEK_FALLBACK_TEXT_MODEL,
+  buildPolishUserPrompt,
+  formatPolishFailure,
+  getDeepseekTextModel,
+  normalizePolishBody,
+  polishSystemPrompt,
+  safeParsePolishJson,
+} from "./api/ai/polishShared.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -49,77 +58,6 @@ export const getAIProviderOrNull = (): string | null => {
 
 const getGlmTextModel = () =>
   (process.env.GLM_TEXT_MODEL || "glm-4.7").trim() || "glm-4.7";
-
-const normalizePolishBody = (
-  parsed: Record<string, unknown>,
-  transcript: string,
-  provider: string,
-  model: string
-) => ({
-  feedback: typeof parsed.feedback === "string" ? parsed.feedback : "你真棒！说得很清楚。",
-  polishedStory:
-    typeof parsed.polishedStory === "string" ? parsed.polishedStory : transcript,
-  highlights: Array.isArray(parsed.highlights)
-    ? (parsed.highlights as unknown[]).filter((x): x is string => typeof x === "string")
-    : [],
-  ai: { provider, model },
-});
-
-const safeParsePolishJson = (raw: string): Record<string, unknown> => {
-  const trimmed = (raw ?? "").trim();
-  if (!trimmed) return {};
-  try {
-    return JSON.parse(trimmed) as Record<string, unknown>;
-  } catch {
-    const m = trimmed.match(/\{[\s\S]*\}/);
-    if (!m) return {};
-    try {
-      return JSON.parse(m[0]) as Record<string, unknown>;
-    } catch {
-      return {};
-    }
-  }
-};
-
-const formatPolishFailure = (err: unknown, provider: string): { message: string; detail: string } => {
-  const parts: string[] = [`provider=${provider}`];
-
-  if (typeof err === "string") {
-    parts.push(err);
-    const t = parts.join(" | ");
-    return { message: t, detail: t };
-  }
-
-  if (err instanceof Error) {
-    parts.push(`${err.name}: ${err.message || "(no message)"}`);
-    const anyErr = err as Error & { status?: number; code?: unknown; error?: unknown };
-    if (typeof anyErr.status === "number") parts.push(`HTTP ${anyErr.status}`);
-    if (anyErr.code != null && anyErr.code !== "") parts.push(`code=${String(anyErr.code)}`);
-    if (anyErr.error != null) {
-      try {
-        parts.push(`upstream: ${JSON.stringify(anyErr.error).slice(0, 1500)}`);
-      } catch {
-        parts.push(`upstream: ${String(anyErr.error)}`);
-      }
-    }
-    const cause = (err as Error & { cause?: unknown }).cause;
-    if (cause != null) {
-      parts.push(`cause: ${cause instanceof Error ? cause.message : String(cause)}`);
-    }
-  } else if (err && typeof err === "object") {
-    try {
-      parts.push(JSON.stringify(err).slice(0, 2000));
-    } catch {
-      parts.push(Object.prototype.toString.call(err));
-    }
-  } else {
-    parts.push(String(err));
-  }
-
-  const detail = parts.filter(Boolean).join(" | ") || "unknown_error";
-  const message = detail.length > 400 ? `${detail.slice(0, 400)}…` : detail;
-  return { message, detail };
-};
 
 export function createApp() {
   const app = express();
@@ -288,6 +226,7 @@ export function createApp() {
 
   app.post("/api/ai/polish", async (req, res) => {
     const { transcript } = req.body;
+    const context = req.body?.context && typeof req.body.context === "object" ? req.body.context : undefined;
     const provider = getAIProviderOrNull();
 
     if (!provider) {
@@ -304,16 +243,6 @@ export function createApp() {
       return;
     }
 
-    const systemPrompt = `你现在是一名资深的小学一年级语文老师。请阅读以下7岁儿童的看图说话文本。
-请保留他原有的逻辑，用一年级下学期学生能听懂、能学习的词汇（如增加适当的形容词、动词），将这段话润色成一段优美的短文。
-字数控制在100字以内。
-请按以下JSON格式返回：
-{
-  "feedback": "先夸奖他哪里说得好（如流利度、要素完整度等），语气要亲切鼓励。",
-  "polishedStory": "润色后的优美版本",
-  "highlights": ["用到的好词1", "用到的好词2"]
-}`;
-
     try {
       if (provider === "gemini") {
         const geminiModel =
@@ -322,7 +251,7 @@ export function createApp() {
         const response = await genAI.models.generateContent({
           model: geminiModel,
           contents: [
-            { role: "user", parts: [{ text: systemPrompt + `\n孩子的原话：${transcript}` }] },
+            { role: "user", parts: [{ text: `${polishSystemPrompt}\n\n${buildPolishUserPrompt(transcript, context)}` }] },
           ],
           config: {
             responseMimeType: "application/json",
@@ -339,7 +268,7 @@ export function createApp() {
         if (provider === "deepseek") {
           baseURL = "https://api.deepseek.com";
           apiKey = process.env.DEEPSEEK_API_KEY;
-          model = "deepseek-chat";
+          model = getDeepseekTextModel();
         } else if (provider === "glm") {
           baseURL = "https://open.bigmodel.cn/api/paas/v4";
           apiKey = process.env.GLM_API_KEY;
@@ -348,23 +277,27 @@ export function createApp() {
 
         const client = new OpenAI({ baseURL, apiKey: apiKey || "" });
 
-        const runChat = (useJsonObject: boolean) =>
+        const runChat = (targetModel: string, useJsonObject: boolean) =>
           client.chat.completions.create({
             messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: `孩子的原话：${transcript}` },
+              { role: "system", content: polishSystemPrompt },
+              { role: "user", content: buildPolishUserPrompt(transcript, context) },
             ],
-            model,
+            model: targetModel,
             ...(useJsonObject ? { response_format: { type: "json_object" as const } } : {}),
           });
 
         let completion;
         try {
-          completion = await runChat(true);
+          completion = await runChat(model, true);
         } catch (firstErr) {
           if (provider === "glm") {
             console.warn("GLM json_object mode failed, retry without response_format:", firstErr);
-            completion = await runChat(false);
+            completion = await runChat(model, false);
+          } else if (provider === "deepseek" && model !== DEEPSEEK_FALLBACK_TEXT_MODEL) {
+            console.warn("DeepSeek primary model failed, retry with fallback model:", firstErr);
+            model = DEEPSEEK_FALLBACK_TEXT_MODEL;
+            completion = await runChat(model, true);
           } else {
             throw firstErr;
           }

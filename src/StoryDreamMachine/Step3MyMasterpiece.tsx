@@ -1,6 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Eraser, Mic, MicOff, Play, Layout, Wand2 } from 'lucide-react';
+import {
+  BookOpenText,
+  ClipboardList,
+  Eraser,
+  Image as ImageIcon,
+  Mic,
+  MicOff,
+  PenLine,
+  Quote,
+  Send,
+  Sparkles,
+  Wand2,
+} from 'lucide-react';
 import { StoryData } from './types';
 import { cancelSpeaking, speak, preloadTts } from './lib/tts';
 
@@ -9,6 +21,61 @@ interface Props {
   imageUrl: string;
   previousAnswers: Record<string, string>;
   story: StoryData;
+}
+
+type InterviewNote = {
+  id: string;
+  index: number;
+  question: string;
+  answer: string;
+  hint: string;
+};
+
+const SKIPPED_MARKERS = new Set(['（跳过了）', '这题我先跳过']);
+
+function cleanAnswer(value: string | undefined): string {
+  const trimmed = (value ?? '').trim();
+  return SKIPPED_MARKERS.has(trimmed) ? '' : trimmed;
+}
+
+function ensureSentence(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed) return '';
+  return /[。！？.!?]$/.test(trimmed) ? trimmed : `${trimmed}。`;
+}
+
+function buildInterviewNotes(story: StoryData, previousAnswers: Record<string, string>): InterviewNote[] {
+  return story.questions
+    .map((question, index) => ({
+      id: question.id,
+      index,
+      question: question.question,
+      answer: cleanAnswer(previousAnswers[question.key]),
+      hint: question.hint,
+    }))
+    .filter((note) => note.answer.length > 0);
+}
+
+function buildDraftFromNotes(notes: InterviewNote[]): string {
+  return notes.map((note) => ensureSentence(note.answer)).filter(Boolean).join('');
+}
+
+function mergeTranscript(base: string, next: string) {
+  const cleanBase = base.trim();
+  const cleanNext = next.trim();
+
+  if (!cleanBase) return cleanNext;
+  if (!cleanNext) return cleanBase;
+  return `${cleanBase}${/[。！？.!?]$/.test(cleanBase) ? '' : '。'}${cleanNext}`;
+}
+
+function getQuestionBrief(question: string): string {
+  const normalized = question
+    .replace(/^小朋友[，,]\s*/, '')
+    .replace(/[？?]\s*$/, '')
+    .trim();
+
+  return normalized.length > 18 ? `${normalized.slice(0, 18)}...` : normalized;
 }
 
 export default function Step3MyMasterpiece({ onComplete, imageUrl, previousAnswers, story }: Props) {
@@ -21,14 +88,9 @@ export default function Step3MyMasterpiece({ onComplete, imageUrl, previousAnswe
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingBaseRef = useRef('');
 
-  const mergeTranscript = (base: string, next: string) => {
-    const cleanBase = base.trim();
-    const cleanNext = next.trim();
-
-    if (!cleanBase) return cleanNext;
-    if (!cleanNext) return cleanBase;
-    return `${cleanBase}${/[。！？.!?]$/.test(cleanBase) ? '' : '。'}${cleanNext}`;
-  };
+  const interviewNotes = buildInterviewNotes(story, previousAnswers);
+  const interviewDraft = buildDraftFromNotes(interviewNotes);
+  const hasInterviewDraft = interviewDraft.length > 0;
 
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -91,7 +153,8 @@ export default function Step3MyMasterpiece({ onComplete, imageUrl, previousAnswe
   }, []);
 
   useEffect(() => {
-    preloadTts("魔法合体成功！你可以再检查一下有没有说错的地方哦。");
+    preloadTts("参考采访笔记，把故事从头到尾完整讲一遍吧。");
+    preloadTts("已经根据采访笔记整理好草稿啦，你可以继续修改。");
   }, []);
 
   const stopMediaRecorder = () => {
@@ -144,7 +207,7 @@ export default function Step3MyMasterpiece({ onComplete, imageUrl, previousAnswe
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
         const url = URL.createObjectURL(audioBlob);
         setAudioUrl(url);
-        stream.getTracks().forEach(track => track.stop());
+        stream.getTracks().forEach((track) => track.stop());
       };
 
       mediaRecorderRef.current.start();
@@ -170,12 +233,15 @@ export default function Step3MyMasterpiece({ onComplete, imageUrl, previousAnswe
     void startRecognition();
   };
 
-  const handleMagicCombine = () => {
-    const merged = Object.values(previousAnswers).filter(a => a && a !== "（跳过了）").join('。');
-    if (merged) {
-      setTranscript(merged + '。');
-      void speak("魔法合体成功！你可以再检查一下有没有说错的地方哦。");
+  const handleUseInterviewDraft = () => {
+    if (!hasInterviewDraft) return;
+    if (isRecording) {
+      stopRecognition();
     }
+    recordingBaseRef.current = interviewDraft;
+    setTranscript(interviewDraft);
+    setAudioUrl(null);
+    void speak("已经根据采访笔记整理好草稿啦，你可以继续修改。");
   };
 
   const handleResetDraft = () => {
@@ -189,102 +255,117 @@ export default function Step3MyMasterpiece({ onComplete, imageUrl, previousAnswe
 
   const transcriptLength = transcript.trim().length;
   const canSubmit = transcriptLength > 0 && !isRecording;
+  const promptWords = story.hotspots.flatMap((hotspot) => hotspot.words.map((word) => ({ id: hotspot.id, word })));
 
   return (
-    <div className="flex flex-col items-center gap-6 p-4 max-w-6xl mx-auto pb-8">
-      <div className="text-center space-y-2">
-        <h2 className="text-3xl font-bold text-primary flex items-center justify-center gap-2">
-          <Layout className="w-8 h-8" /> 第三步：我的大作
-        </h2>
-        <p className="text-slate-500">采访结束啦，现在请你像个小广播员一样，把整个故事连起来讲一遍吧！</p>
+    <div className="w-full max-w-[1500px] mx-auto px-3 sm:px-5 pb-5">
+      <div className="mb-4 overflow-hidden rounded-[34px] border border-slate-900/10 bg-slate-950 shadow-[0_24px_80px_rgba(15,23,42,0.22)]">
+        <div className="relative flex flex-col gap-4 px-5 py-4 text-white sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,159,67,0.32),transparent_28%),radial-gradient(circle_at_82%_12%,rgba(84,160,255,0.24),transparent_26%)]" />
+          <div className="relative flex items-center gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-400 to-primary-700 shadow-lg shadow-primary-900/30">
+              <BookOpenText className="h-7 w-7" />
+            </div>
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.28em] text-primary-200">Story Studio</p>
+              <h2 className="text-2xl font-black tracking-tight sm:text-3xl">第三步：完整讲故事</h2>
+            </div>
+          </div>
+          <p className="relative max-w-2xl text-sm leading-6 text-slate-200 sm:text-base">
+            看着采访笔记和图片，把故事从开头、经过到结尾重新讲一遍。这里写下的内容，才会交给第四步 AI 魔法师润色。
+          </p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)] gap-6 w-full items-start">
-        <div className="space-y-4">
-          <div className="relative rounded-2xl overflow-hidden shadow-lg border-4 border-white">
-            <img src={imageUrl} alt="Story" className="w-full h-auto" referrerPolicy="no-referrer" />
+      <div className="grid grid-cols-1 gap-4 lg:h-[calc(100vh-245px)] lg:min-h-[560px] lg:max-h-[720px] lg:grid-cols-[240px_minmax(430px,1fr)_280px] xl:grid-cols-[260px_minmax(470px,1fr)_310px] 2xl:grid-cols-[290px_minmax(560px,1fr)_340px]">
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-[34px] border border-white/80 bg-[#fff7e7] shadow-[0_22px_60px_rgba(146,91,28,0.14)]">
+          <div className="bg-gradient-to-r from-[#3b2f23] to-[#59412c] px-4 py-3 text-white">
+            <p className="flex items-center gap-2 text-sm font-black">
+              <ImageIcon className="h-4 w-4 text-primary-200" />
+              故事参照
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(220px,0.8fr)] gap-4">
-            <div className="glass-card p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Play className="w-4 h-4 text-primary" />
-                <h4 className="font-bold text-primary">故事小记忆</h4>
+          <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
+            <div className="relative overflow-hidden rounded-[28px] bg-slate-900 p-2 shadow-[0_18px_45px_rgba(15,23,42,0.2)]">
+              <div className="aspect-[4/3] overflow-hidden rounded-[22px] bg-slate-800">
+                <img
+                  src={imageUrl}
+                  alt="Story"
+                  className="h-full w-full object-contain"
+                  referrerPolicy="no-referrer"
+                />
               </div>
-              <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
-                {story.questions.map((q) => (
-                  <div key={q.key} className="bg-white/70 p-3 rounded-2xl border border-primary/10">
-                    <p className="text-xs text-slate-400 font-medium">{q.question}</p>
-                    <p className="text-sm text-slate-700 font-bold mt-1">
-                      {previousAnswers[q.key] || "（跳过了）"}
-                    </p>
-                  </div>
-                ))}
+              <div className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-slate-800 shadow">
+                看图回忆
               </div>
             </div>
 
-            <div className="glass-card p-4">
-              <h4 className="font-bold text-primary mb-3 flex items-center gap-2">
-                <Layout className="w-4 h-4" /> 关键词提示
-              </h4>
+            <div className="min-h-0 flex-1 overflow-hidden rounded-[26px] border border-amber-200/70 bg-white/75 p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h3 className="text-sm font-black text-slate-800">可以借用的词</h3>
+                <span className="rounded-full bg-primary-100 px-2.5 py-1 text-xs font-bold text-primary-700">
+                  {story.hotspots.length} 组
+                </span>
+              </div>
               <div className="flex flex-wrap gap-2">
-                {story.hotspots.map((h) => (
-                  <span key={h.id} className="bg-accent/30 px-3 py-1.5 rounded-full text-sm font-medium text-slate-700">
-                    {h.label}
+                {story.hotspots.map((hotspot) => (
+                  <span
+                    key={hotspot.id}
+                    className="rounded-full bg-warning/35 px-3 py-1.5 text-sm font-black text-slate-800"
+                  >
+                    {hotspot.label}
                   </span>
                 ))}
               </div>
+              <div className="mt-4 max-h-32 overflow-y-auto pr-1 lg:max-h-none">
+                <div className="flex flex-wrap gap-2">
+                  {promptWords.map(({ id, word }) => (
+                    <span
+                      key={`${id}-${word}`}
+                      className="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-bold text-primary-700"
+                    >
+                      {word}
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div className="xl:sticky xl:top-4">
-          <div className="rounded-[32px] bg-white/95 border border-white shadow-[0_24px_60px_rgba(113,164,142,0.18)] p-5 sm:p-6 space-y-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-bold tracking-[0.2em] text-primary/60 uppercase">Story Studio</p>
-                <h3 className="text-2xl font-black text-slate-800 mt-1">故事录音台</h3>
-                <p className="text-sm text-slate-500 mt-1">一边讲，一边看文字写下来，小朋友会更有安全感。</p>
-              </div>
-              <div className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-bold ${isRecording ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-600'}`}>
-                {isRecording ? '● 正在录音' : '准备好了'}
-              </div>
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-[38px] border border-slate-900/10 bg-[#f3dfbd] shadow-[0_28px_85px_rgba(86,55,21,0.2)]">
+          <div className="flex shrink-0 flex-col gap-3 border-b border-amber-900/10 bg-[#2f3b4a] px-5 py-4 text-white sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.24em] text-amber-200">
+                <PenLine className="h-4 w-4" />
+                我的完整故事
+              </p>
+              <h3 className="mt-1 text-2xl font-black">像小作家一样重新讲一遍</h3>
             </div>
-
-            <div className="rounded-3xl bg-primary/5 border border-primary/10 p-4 flex items-center gap-4">
-              <button
-                onClick={toggleRecording}
-                className={`shrink-0 w-20 h-20 rounded-full flex items-center justify-center shadow-[0_20px_45px_rgba(15,23,42,0.24)] transition-all border-4 ${
-                  isRecording
-                    ? 'bg-gradient-to-br from-red-500 to-red-700 border-red-200 animate-pulse scale-105'
-                    : 'bg-gradient-to-br from-orange-500 via-amber-500 to-orange-700 border-white hover:scale-105'
-                }`}
-              >
-                {isRecording ? <MicOff className="w-9 h-9 text-white" /> : <Mic className="w-9 h-9 text-white drop-shadow-sm" />}
-              </button>
-              <div className="min-w-0">
-                <p className="font-bold text-slate-800">
-                  {isRecording ? '正在把你的声音变成文字...' : '点这里开始讲故事'}
-                </p>
-                <p className="text-sm text-slate-500 mt-1">
-                  {isRecording ? '说到哪儿，文字就会出现到下方故事纸上。' : '录完再点一次麦克风结束，也可以直接在文本框里修改。'}
-                </p>
-              </div>
+            <div className={`shrink-0 rounded-full px-4 py-2 text-sm font-black shadow-inner ${
+              isRecording ? 'bg-red-500/20 text-red-100 ring-1 ring-red-300/50' : 'bg-emerald-400/15 text-emerald-100 ring-1 ring-emerald-300/40'
+            }`}>
+              {isRecording ? '● 正在录音' : transcriptLength > 0 ? `已写 ${transcriptLength} 字` : '故事纸是空的'}
             </div>
+          </div>
 
-            <div className="rounded-[28px] border-2 border-slate-100 bg-slate-50/70 p-4 sm:p-5 relative">
-              <div className="flex items-center justify-between mb-3">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-5">
+            <div className="flex min-h-[360px] flex-1 flex-col overflow-hidden rounded-[32px] border border-amber-200 bg-[#fffdf7] shadow-inner lg:min-h-0">
+              <div className="flex shrink-0 items-center justify-between gap-3 border-b border-amber-100 bg-white/70 px-4 py-3">
                 <div>
-                  <p className="text-sm font-bold text-slate-700">我的故事纸</p>
-                  <p className="text-xs text-slate-400">{transcriptLength > 0 ? `已经写下 ${transcriptLength} 个字` : '把看到的、想到的、发生的事都讲进去'}</p>
+                  <p className="text-sm font-black text-slate-800">故事纸</p>
+                  <p className="text-xs text-slate-500">
+                    {isRecording ? '你说的话会实时出现在这里' : '参考两边的信息，但用你自己的话完整表达'}
+                  </p>
                 </div>
                 {isRecording && (
                   <motion.div
-                    animate={{ opacity: [0.5, 1, 0.5] }}
+                    animate={{ opacity: [0.45, 1, 0.45] }}
                     transition={{ duration: 1.4, repeat: Infinity }}
-                    className="flex items-center gap-2 text-red-500 text-sm font-bold"
+                    className="flex items-center gap-2 rounded-full bg-red-50 px-3 py-1.5 text-xs font-black text-red-600"
                   >
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
                     REC
                   </motion.div>
                 )}
@@ -292,40 +373,125 @@ export default function Step3MyMasterpiece({ onComplete, imageUrl, previousAnswe
 
               <textarea
                 value={transcript}
-                onChange={(e) => setTranscript(e.target.value)}
-                placeholder={isRecording ? "我正在听，你的话会马上出现在这里..." : "先说一说图上发生了什么，再讲讲你的想法吧！"}
-                className="w-full min-h-[220px] sm:min-h-[260px] max-h-[320px] bg-white rounded-3xl border border-slate-200 resize-none p-5 text-lg text-slate-700 leading-relaxed outline-none focus:border-primary/40 focus:ring-4 focus:ring-primary/10"
+                onChange={(event) => setTranscript(event.target.value)}
+                placeholder={isRecording ? "我正在听，你的话会马上出现在这里..." : "先看右边采访笔记，再从“有一天……”开始，把图片里的故事完整讲出来吧。"}
+                className="min-h-0 flex-1 resize-none overflow-y-auto bg-transparent px-5 py-5 text-lg leading-9 text-slate-800 outline-none placeholder:text-slate-400 focus:bg-white/35 sm:px-6"
               />
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
-                onClick={handleMagicCombine}
-                className="min-h-touch rounded-2xl bg-amber-50 text-amber-700 font-bold px-4 py-3 flex items-center justify-center gap-2 hover:bg-amber-100 transition-colors"
-                title="把刚才采访时的回答先拼成一段"
-              >
-                <Wand2 className="w-4 h-4" /> 魔法合体
-              </button>
-              <button
-                onClick={handleResetDraft}
-                className="min-h-touch rounded-2xl bg-slate-100 text-slate-600 font-bold px-4 py-3 flex items-center justify-center gap-2 hover:bg-slate-200 transition-colors"
-              >
-                <Eraser className="w-4 h-4" /> 清空重说
-              </button>
+          <div className="shrink-0 border-t border-amber-900/10 bg-white/80 px-4 py-4 backdrop-blur sm:px-5">
+            <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-center 2xl:justify-between">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={toggleRecording}
+                  className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border-4 shadow-[0_18px_42px_rgba(15,23,42,0.24)] transition-all ${
+                    isRecording
+                      ? 'scale-105 animate-pulse border-red-200 bg-gradient-to-br from-red-500 to-red-700'
+                      : 'border-white bg-gradient-to-br from-secondary-500 via-secondary-700 to-slate-900 hover:scale-105'
+                  }`}
+                  title={isRecording ? '停止录音' : '开始录音'}
+                >
+                  {isRecording ? <MicOff className="h-8 w-8 text-white" /> : <Mic className="h-8 w-8 text-white" />}
+                </button>
+                <div>
+                  <p className="font-black text-slate-800">
+                    {isRecording ? '说完再点一次话筒' : '点话筒讲，或直接打字'}
+                  </p>
+                  <p className="text-sm text-slate-500">
+                    {isRecording ? '故事会同步写进上面的故事纸' : '录音会接在已有文字后面'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 2xl:min-w-[520px]">
+                <button
+                  onClick={handleUseInterviewDraft}
+                  disabled={!hasInterviewDraft}
+                  className={`min-h-touch rounded-2xl px-4 py-3 text-sm font-black transition-all ${
+                    hasInterviewDraft
+                      ? 'bg-amber-400 text-slate-900 shadow-md hover:bg-amber-300'
+                      : 'cursor-not-allowed bg-slate-200 text-slate-400'
+                  }`}
+                  title="把采访笔记整理成一段草稿"
+                >
+                  <span className="flex items-center justify-center gap-2">
+                    <Wand2 className="h-4 w-4" /> 生成草稿
+                  </span>
+                </button>
+                <button
+                  onClick={handleResetDraft}
+                  className="min-h-touch rounded-2xl bg-slate-200 px-4 py-3 text-sm font-black text-slate-700 transition-all hover:bg-slate-300"
+                >
+                  <span className="flex items-center justify-center gap-2">
+                    <Eraser className="h-4 w-4" /> 清空重说
+                  </span>
+                </button>
+                <button
+                  onClick={() => onComplete(transcript, audioUrl)}
+                  disabled={!canSubmit}
+                  className={`min-h-touch rounded-2xl px-4 py-3 text-sm font-black transition-all ${
+                    canSubmit
+                      ? 'bg-gradient-to-r from-primary-500 via-orange-500 to-amber-400 text-white shadow-lg hover:scale-[1.02]'
+                      : 'cursor-not-allowed bg-slate-300 text-slate-500'
+                  }`}
+                >
+                  <span className="flex items-center justify-center gap-2">
+                    <Send className="h-4 w-4" /> 交给魔法师
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <aside className="min-h-0 overflow-hidden rounded-[34px] border border-secondary-100 bg-[#eef7ff] shadow-[0_22px_60px_rgba(38,94,142,0.14)]">
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="shrink-0 bg-gradient-to-r from-secondary-700 to-secondary-500 px-5 py-4 text-white">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.22em] text-secondary-100">Route Notes</p>
+                  <h4 className="mt-1 flex items-center gap-2 text-xl font-black">
+                    <ClipboardList className="h-5 w-5" /> 采访路线
+                  </h4>
+                </div>
+                <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-black">
+                  {interviewNotes.length} 条
+                </span>
+              </div>
             </div>
 
-            {canSubmit && (
-              <motion.button
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                onClick={() => onComplete(transcript, audioUrl)}
-                className="btn-kid-primary w-full"
-              >
-                讲完啦，看看魔法师的评价
-              </motion.button>
+            {interviewNotes.length > 0 ? (
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 pr-3">
+                {interviewNotes.map((note) => (
+                  <div key={note.id} className="rounded-[26px] border border-secondary-100 bg-white p-4 shadow-sm">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <p className="rounded-full bg-secondary-50 px-2.5 py-1 text-xs font-black text-secondary-700">
+                        第 {note.index + 1} 问
+                      </p>
+                      <Sparkles className="h-4 w-4 shrink-0 text-primary-500" />
+                    </div>
+                    <p className="text-sm font-black leading-6 text-slate-700">{getQuestionBrief(note.question)}</p>
+                    <div className="mt-3 rounded-2xl bg-secondary-50/80 px-3 py-2">
+                      <p className="flex gap-2 text-sm font-bold leading-6 text-slate-800">
+                        <Quote className="mt-0.5 h-4 w-4 shrink-0 text-secondary-500" />
+                        <span>{note.answer}</span>
+                      </p>
+                    </div>
+                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">提示：{note.hint}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex min-h-0 flex-1 items-center p-4">
+                <div className="rounded-[28px] border border-slate-100 bg-white px-5 py-8 text-center shadow-sm">
+                  <p className="font-black text-slate-800">还没有采访回答</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-500">没关系，看着图片和关键词，也可以直接完整讲一遍。</p>
+                </div>
+              </div>
             )}
           </div>
-        </div>
+        </aside>
       </div>
     </div>
   );

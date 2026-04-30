@@ -127,6 +127,126 @@ export const STORIES: StoryData[] = [
       { id: 'q3', question: '妈妈的心情看起来怎么样？为什么？', hint: '看看妈妈的表情。', key: 'mom_feeling' },
       { id: 'q4', question: '你在家里会帮爸爸妈妈做哪些家务呢？', hint: '分享一下你的劳动经验。', key: 'personal_exp' }
     ]
+  },
+  {
+    id: 'rainy-umbrella',
+    imageUrl: '/story-images/rainy-umbrella.jpg',
+    disableAI: true,
+    imagePrompt: 'A warm rainy school afternoon scene. Outside a school gate, a young child in a yellow raincoat shares a bright umbrella with a classmate who forgot theirs. A puddle reflects the umbrella, raindrops fall softly, a small schoolbag is held carefully, and a smiling teacher waves from the gate in the background. The mood is kind, cozy, and suitable for first-grade picture storytelling.',
+    title: '雨天借伞',
+    hotspots: [
+      { id: 'umbrella', x: 50, y: 40, label: '彩色雨伞', words: ['撑开', '挡雨'], audioText: '一把彩色雨伞撑在两个小朋友头顶，帮他们挡住了雨点。' },
+      { id: 'raincoat-child', x: 42, y: 62, label: '穿雨衣的孩子', words: ['黄色雨衣', '热心'], audioText: '穿黄色雨衣的小朋友很热心，把雨伞分给同学一起用。' },
+      { id: 'classmate', x: 58, y: 62, label: '忘带伞的同学', words: ['靠近', '感谢'], audioText: '旁边的同学忘记带伞了，他靠近雨伞，心里一定很感谢。' },
+      { id: 'puddle', x: 50, y: 82, label: '小水洼', words: ['倒影', '亮晶晶'], audioText: '地上的小水洼亮晶晶的，还映出了雨伞的颜色。' },
+      { id: 'teacher', x: 80, y: 44, label: '老师', words: ['微笑', '挥手'], audioText: '校门口的老师微笑着挥手，看见小朋友互相帮助，真高兴。' }
+    ],
+    questions: [
+      { id: 'q1', question: '这是什么天气？你从哪里看出来的？', hint: '看看雨点、雨伞和地上的水洼。', key: 'weather' },
+      { id: 'q2', question: '两个小朋友在校门口做什么？', hint: '观察他们和雨伞的位置。', key: 'what_doing' },
+      { id: 'q3', question: '穿雨衣的小朋友为什么要这样做？', hint: '想一想同学忘带伞时会怎么样。', key: 'why_help' },
+      { id: 'q4', question: '如果你是被帮助的同学，你会说什么？', hint: '可以说一句感谢的话。', key: 'feeling' }
+    ]
+  },
+  {
+    id: 'dragon-boat-zongzi',
+    imageUrl: '/story-images/dragon-boat-zongzi.jpg',
+    disableAI: true,
+    imagePrompt: 'A cheerful Dragon Boat Festival family scene. In a cozy bright kitchen, a child and grandmother sit at a wooden table wrapping zongzi with green bamboo leaves. Bowls of sticky rice and red dates are on the table. Through an open window in the background, a small river shows colorful dragon boats far away. The room feels festive, loving, and suitable for first-grade picture storytelling.',
+    title: '端午包粽',
+    hotspots: [
+      { id: 'grandma', x: 34, y: 52, label: '奶奶', words: ['耐心', '教'], audioText: '奶奶坐在桌边，耐心地教小朋友包粽子。' },
+      { id: 'child', x: 55, y: 56, label: '小朋友', words: ['认真', '学习'], audioText: '小朋友认真地学着把粽叶折起来，样子很专心。' },
+      { id: 'zongzi', x: 48, y: 70, label: '粽子', words: ['绿绿的', '香喷喷'], audioText: '桌上有绿绿的粽叶和香喷喷的粽子，看起来真有节日味道。' },
+      { id: 'ingredients', x: 70, y: 66, label: '糯米红枣', words: ['白白的', '甜甜的'], audioText: '碗里放着白白的糯米和甜甜的红枣，是包粽子的材料。' },
+      { id: 'dragon-boat', x: 82, y: 28, label: '龙舟', words: ['热闹', '比赛'], audioText: '窗外的小河上有彩色的龙舟，远处好像正在热闹地比赛。' }
+    ],
+    questions: [
+      { id: 'q1', question: '这是哪个传统节日？你看到了什么？', hint: '看看桌上的粽叶和粽子。', key: 'festival' },
+      { id: 'q2', question: '奶奶和小朋友正在做什么？', hint: '观察他们手里的动作。', key: 'what_doing' },
+      { id: 'q3', question: '桌子上有哪些包粽子的材料？', hint: '找找粽叶、糯米和红枣。', key: 'materials' },
+      { id: 'q4', question: '你觉得家里一起过节是什么感觉？', hint: '可以说说温暖、开心或热闹。', key: 'feeling' }
+    ]
+  },
+  {
+    id: 'library-reading',
+    imageUrl: '/story-images/library-reading.jpg',
+    disableAI: true,
+    imagePrompt: 'A quiet and delightful library reading scene. A young child sits by a low round table reading a colorful picture book. A friendly librarian places another book on the table. Neat bookshelves, a small potted plant, a sunny window, and a soft reading rug make the library peaceful. The scene is suitable for first-grade picture storytelling.',
+    title: '图书馆阅读',
+    hotspots: [
+      { id: 'child', x: 42, y: 60, label: '读书的孩子', words: ['安静', '专心'], audioText: '小朋友坐在桌边安静地读书，读得特别专心。' },
+      { id: 'picture-book', x: 48, y: 68, label: '图画书', words: ['有趣', '彩色'], audioText: '桌上的图画书又有趣又漂亮，里面一定藏着精彩的故事。' },
+      { id: 'librarian', x: 68, y: 52, label: '图书管理员', words: ['亲切', '推荐'], audioText: '亲切的图书管理员又拿来一本书，想推荐给小朋友。' },
+      { id: 'bookshelf', x: 22, y: 38, label: '书架', words: ['整整齐齐', '许多书'], audioText: '书架上的书摆得整整齐齐，像一排排小士兵。' },
+      { id: 'window', x: 82, y: 32, label: '阳光窗户', words: ['明亮', '温暖'], audioText: '温暖的阳光从窗户照进来，图书馆里安静又明亮。' }
+    ],
+    questions: [
+      { id: 'q1', question: '这是在什么地方？你怎么看出来的？', hint: '看看书架、桌子和图画书。', key: 'where' },
+      { id: 'q2', question: '小朋友正在做什么？他的样子怎么样？', hint: '观察他的姿势和表情。', key: 'what_doing' },
+      { id: 'q3', question: '图书管理员在做什么？', hint: '看看她手里的书。', key: 'librarian' },
+      { id: 'q4', question: '你喜欢读什么书？为什么？', hint: '说说你自己的阅读经验。', key: 'personal_exp' }
+    ]
+  },
+  {
+    id: 'autumn-orchard',
+    imageUrl: '/story-images/autumn-orchard.jpg',
+    disableAI: true,
+    imagePrompt: 'A bright autumn orchard scene. Two children pick red apples in a golden orchard. One child carefully reaches for an apple on a low branch while another child holds a small basket filled with apples. Yellow leaves float in the air, a little rabbit peeks from behind the grass, and warm sunlight shines through the trees. The scene is cheerful and suitable for first-grade picture storytelling.',
+    title: '秋天果园',
+    hotspots: [
+      { id: 'apple-tree', x: 44, y: 34, label: '苹果树', words: ['红彤彤', '挂满'], audioText: '苹果树上挂满了红彤彤的大苹果，看起来真诱人。' },
+      { id: 'picking-child', x: 38, y: 62, label: '摘苹果的孩子', words: ['踮脚', '小心'], audioText: '一个小朋友踮起脚，小心地去摘树枝上的苹果。' },
+      { id: 'basket-child', x: 60, y: 66, label: '提篮子的孩子', words: ['篮子', '收获'], audioText: '另一个小朋友提着篮子，里面已经装了好多苹果，真是大丰收。' },
+      { id: 'leaves', x: 70, y: 28, label: '落叶', words: ['金黄', '飘落'], audioText: '金黄的树叶从空中轻轻飘落，告诉我们秋天来了。' },
+      { id: 'rabbit', x: 78, y: 78, label: '小兔子', words: ['探头', '可爱'], audioText: '草丛里有一只可爱的小兔子探出头，好像也想看看红苹果。' }
+    ],
+    questions: [
+      { id: 'q1', question: '这是什么季节？你从哪里发现的？', hint: '看看树叶和果树。', key: 'season' },
+      { id: 'q2', question: '两个小朋友在果园里做什么？', hint: '观察摘苹果和提篮子的动作。', key: 'what_doing' },
+      { id: 'q3', question: '果园里的苹果和树叶是什么样的？', hint: '可以用颜色和形状来描述。', key: 'describe' },
+      { id: 'q4', question: '如果你也摘到了苹果，你会怎么做？', hint: '可以说说分享或品尝。', key: 'feeling' }
+    ]
+  },
+  {
+    id: 'classroom-duty',
+    imageUrl: '/story-images/classroom-duty.jpg',
+    disableAI: true,
+    imagePrompt: 'A sunny classroom cleaning duty scene. After class, several children work together happily: one child wipes the blackboard with a cloth, one sweeps the floor with a broom, one waters a green plant near the window, and another arranges books on a low shelf. Sunlight comes through the window, desks are tidy, and the classroom feels clean and cooperative. The scene is suitable for first-grade picture storytelling.',
+    title: '教室值日',
+    hotspots: [
+      { id: 'blackboard', x: 32, y: 38, label: '擦黑板', words: ['认真', '干净'], audioText: '一个小朋友正在认真地擦黑板，把黑板擦得干干净净。' },
+      { id: 'broom', x: 48, y: 70, label: '扫地', words: ['弯腰', '仔细'], audioText: '一个小朋友拿着扫把弯腰扫地，连角落也不放过。' },
+      { id: 'plant', x: 76, y: 58, label: '浇花', words: ['绿油油', '照顾'], audioText: '窗边的小朋友正在给绿油油的植物浇水，照顾得很细心。' },
+      { id: 'books', x: 66, y: 72, label: '整理图书', words: ['整齐', '合作'], audioText: '还有小朋友在整理图书，大家一起合作让教室变整齐。' },
+      { id: 'sunlight', x: 84, y: 26, label: '阳光', words: ['明亮', '暖暖的'], audioText: '暖暖的阳光照进教室，干净的教室变得更明亮了。' }
+    ],
+    questions: [
+      { id: 'q1', question: '这是在哪里？小朋友们为什么留下来？', hint: '看看黑板、桌椅和扫把。', key: 'where_why' },
+      { id: 'q2', question: '图上的小朋友分别在做什么？', hint: '找找擦黑板、扫地、浇花和整理书。', key: 'what_doing' },
+      { id: 'q3', question: '他们合作得怎么样？', hint: '观察每个人是不是都在认真做事。', key: 'teamwork' },
+      { id: 'q4', question: '教室打扫干净后，大家心情会怎么样？', hint: '可以说开心、自豪或舒服。', key: 'feeling' }
+    ]
+  },
+  {
+    id: 'market-vegetables',
+    imageUrl: '/story-images/market-vegetables.jpg',
+    disableAI: true,
+    imagePrompt: 'A lively but orderly morning vegetable market scene. A child helps mother choose fresh vegetables at a friendly stall. The child holds a small cloth bag with tomatoes and carrots. A smiling vendor points to leafy greens. Baskets of vegetables, a scale without numbers, and a small cat sitting safely beside the stall add detail. The market is colorful but not crowded. The scene is suitable for first-grade picture storytelling.',
+    title: '菜市场买菜',
+    hotspots: [
+      { id: 'mother-child', x: 42, y: 58, label: '妈妈和孩子', words: ['挑选', '帮忙'], audioText: '妈妈带着小朋友在菜摊前挑选蔬菜，小朋友也在认真帮忙。' },
+      { id: 'vegetables', x: 56, y: 66, label: '新鲜蔬菜', words: ['绿油油', '红彤彤'], audioText: '摊位上有绿油油的青菜、红彤彤的西红柿，还有胡萝卜。' },
+      { id: 'vendor', x: 72, y: 48, label: '摊主', words: ['热情', '介绍'], audioText: '热情的摊主正指着新鲜蔬菜，给妈妈和小朋友介绍。' },
+      { id: 'cloth-bag', x: 40, y: 72, label: '布袋', words: ['环保', '装菜'], audioText: '小朋友手里拿着布袋，可以把买好的蔬菜装进去，很环保。' },
+      { id: 'cat', x: 82, y: 78, label: '小猫', words: ['乖乖', '蹲着'], audioText: '菜摊旁边有一只小猫乖乖地蹲着，好奇地看着大家买菜。' }
+    ],
+    questions: [
+      { id: 'q1', question: '这是在什么地方？你看到了哪些蔬菜？', hint: '看看菜摊和篮子里的颜色。', key: 'where_vegetables' },
+      { id: 'q2', question: '小朋友和妈妈正在做什么？', hint: '观察他们站在哪里、手里拿着什么。', key: 'what_doing' },
+      { id: 'q3', question: '摊主看起来怎么样？他可能在说什么？', hint: '看看摊主的动作和表情。', key: 'vendor' },
+      { id: 'q4', question: '如果你去买菜，你会帮忙做什么？', hint: '可以说挑菜、提袋子或付钱。', key: 'personal_exp' }
+    ]
   }
 ];
 
